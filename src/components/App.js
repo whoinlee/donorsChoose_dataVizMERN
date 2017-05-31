@@ -23,17 +23,17 @@ class CrossfilterContext {
 		this.data = data
 
 		//-- crossfilter instance
-		this.crossfilter = crossfilter(data)
-		this.groupAll = this.crossfilter.groupAll()
+		this.crossfilter = crossfilter(data);
+    	this.groupAll = this.crossfilter.groupAll();
 		
 		//-- dimensions
 		this.datePostedDimension = this.crossfilter.dimension(d => d.date_posted)
-		this.stateDimension  = this.crossfilter.dimension(d => d.school_state)
-		this.fundingStatusDimension  = this.crossfilter.dimension(d => d.funding_status)
-		this.resourceTypeDimension  = this.crossfilter.dimension(d => d.resource_type)
-		this.povertyLevelDimension  = this.crossfilter.dimension(d => d.poverty_level)
-		this.gradeLevelDimension  = this.crossfilter.dimension(d => d.grade_level)
-		this.totalDonationsDimension   = this.crossfilter.dimension(d => d.total_donations)
+		this.stateDimension = this.crossfilter.dimension(d => d.school_state)
+		this.fundingStatusDimension = this.crossfilter.dimension(d => d.funding_status)
+		this.resourceTypeDimension = this.crossfilter.dimension(d => d.resource_type)
+		this.povertyLevelDimension = this.crossfilter.dimension(d => d.poverty_level)
+		this.gradeLevelDimension = this.crossfilter.dimension(d => d.grade_level)
+		// this.totalDonationsDimension = this.crossfilter.dimension(d => d.total_donations)
 
 		//-- # of projects by group
 		this.projectsByDate = this.datePostedDimension.group()
@@ -44,10 +44,10 @@ class CrossfilterContext {
 		this.projectsByGradeLevel = this.gradeLevelDimension.group()
 		
 		//-- calculate groups
-		this.totalDonationsByState = this.projectsByState.reduceSum(d => d.total_donations)
-		this.totalDonationsByGrade = this.projectsByGradeLevel.reduceSum(d => d.total_donations)
-		this.totalDonationsByFundingStatus = this.projectsByFundingStatus.reduceSum(d => d.total_donations)
-		this.netTotalDonations = this.groupAll.reduceSum(d => d.total_donations)
+		this.totalDonationsByState = this.stateDimension.group().reduceSum(d => d.total_donations)
+		this.totalDonationsByGrade = this.gradeLevelDimension.group().reduceSum(d => d.total_donations)
+		this.totalDonationsByFundingStatus = this.fundingStatusDimension.group().reduceSum(d => d.total_donations)
+
 
 		//-- threshold values to be used in charts
 		minDate = this.datePostedDimension.bottom(1)[0].date_posted
@@ -75,7 +75,6 @@ class App extends Component {
 	 }
 
 	crossfilterContext = (callBack) => {
-		console.log("APP :: crossfilterContext")
 		console.log('APP :: crossfilterContext, config.NODE_ENV:', config.node_env)
 
 		if (!callBack) {
@@ -86,9 +85,10 @@ class App extends Component {
 	    	//-- development
 		    axios.get(`/api/data`)
 		    .then(resp => {
-		    	let data = resp.data 	
+		    	let data = resp.data
+		    	console.log("development: data.length, " + data.length) 	
 	    	 	const dateParse = timeParse('%m/%d/%Y')
-	    	 	data.forEach((d, i) => {
+	    	 	data.forEach(d => {
 					d.date_posted = dateParse(d.date_posted);
 					d.date_posted.setDate(1)	//set to the 1st day of the month
 					d.total_donations = +d.total_donations;
@@ -100,8 +100,9 @@ class App extends Component {
 		} else {
 			//-- production
 			csv('./data/sampledata.csv', (data) => {
+				console.log("production: data.length, " + data.length) 
 				const dateParse = timeParse('%m/%d/%Y')
-	    	 	data.forEach((d, i) => {
+	    	 	data.forEach(d => {
 					d.date_posted = dateParse(d.date_posted);
 					d.date_posted.setDate(1)	//set to the 1st day of the month
 					d.total_donations = +d.total_donations;
@@ -131,20 +132,20 @@ class App extends Component {
 		        <div className="appContent">
 			        <ChartContainer className="container"
 			        				crossfilterContext={this.crossfilterContext} >
-			        	<div className="row" style={{marginLeft:'50px', width: '1024px'}}>
+			        	<div className="row" style={{marginLeft:'15px', width: '1024px'}}>
 				          <DataCount 
 			                className="dc-data-count"
 			                dimension={ctx => ctx.crossfilter}
 			                group={ctx => ctx.groupAll} />
-				          <div className="dc-data-count">
+				          <div className="dc-data-count" style={{position: 'absolute', right: '50px'}}>
 				          	<a className="reset" style={{fontWeight: 'bold', textDecoration: 'underline', cursor:'pointer', color:'#3182bd'}} onClick={this.resetAll}>Reset All</a>
 				          </div>
 				        </div>
 
 				        <div className="row">
 				        	<div className='chartTitle' style={{marginTop: '25px'}}>
-					        	<span style={{marginLeft: '75px'}}>Number of Donations</span>
-					        	<span style={{marginLeft: '500px'}}>Funding Status</span>
+					        	<span style={{marginLeft: '75px'}}>Number of Donations by Date</span>
+					        	<span style={{marginLeft: '445px'}}>Funding Status</span>
 				        	</div>
 				        </div>
 
@@ -177,9 +178,9 @@ class App extends Component {
 
 				        <div className="row">
 				        	<div className='chartTitle'>
-					        	<span style={{marginLeft: '75px'}}>Resource Type</span>
-					        	<span style={{marginLeft: '220px'}}>Poverty Level</span>
-					        	<span style={{marginLeft: '220px'}}>Grade</span>
+					        	<span style={{marginLeft: '75px'}}>by Resource Type</span>
+					        	<span style={{marginLeft: '200px'}}>by Poverty Level</span>
+					        	<span style={{marginLeft: '200px'}}>by Grade</span>
 				        	</div>
 				        </div>
 
