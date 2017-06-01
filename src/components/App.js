@@ -3,8 +3,9 @@ import {ChartContainer, DataCount, BarChart, RowChart, LineChart, PieChart} from
 import PropTypes from 'prop-types'
 
 import {csv} from 'd3-request';
-import {scaleTime} from 'd3-scale';
+import {scaleTime, scaleOrdinal} from 'd3-scale';
 import {timeParse} from 'd3-time-format'
+import {formatSpecifier} from 'd3-format'
 
 import dc from 'dc'
 import crossfilter from 'crossfilter'
@@ -14,9 +15,9 @@ import config from '../../config';
 import '../stylesheets/App.scss'
 
 
-var minDate, maxDate;
-// var maxState;
-// var stateDimension;
+var minDate, maxDate
+var maxState
+var stateDimension
 
 class CrossfilterContext {
 	constructor(data) {
@@ -33,7 +34,10 @@ class CrossfilterContext {
 		this.resourceTypeDimension = this.crossfilter.dimension(d => d.resource_type)
 		this.povertyLevelDimension = this.crossfilter.dimension(d => d.poverty_level)
 		this.gradeLevelDimension = this.crossfilter.dimension(d => d.grade_level)
+
 		this.totalDonationsDimension = this.crossfilter.dimension(d => d.total_donations)
+
+		console.log("typeof(this.stateDimension)", typeof(this.stateDimension))
 
 		//-- # of projects by group
 		this.projectsByDate = this.datePostedDimension.group()
@@ -43,21 +47,31 @@ class CrossfilterContext {
 		this.projectsByPovertyLevel = this.povertyLevelDimension.group()
 		this.projectsByGradeLevel = this.gradeLevelDimension.group()
 		
-		//-- calculate groups
-		this.totalDonationsByState = this.projectsByState.reduceSum(d => d.total_donations)
-		this.totalDonationsByGrade = this.projectsByGradeLevel.reduceSum(d => d.total_donations)
-		this.totalDonationsByFundingStatus = this.projectsByFundingStatus.reduceSum(d => d.total_donations)
-		this.netTotalDonations = this.groupAll.reduceSum(d => d.total_donations)
+		//-- calculate groups, CHECK: need?
+		this.totalDonationsByState = this.stateDimension.group().reduceSum(d => d.total_donations)
+		this.totalDonationsByGrade = this.gradeLevelDimension.group().reduceSum(d => d.total_donations)
+		this.totalDonationsByFundingStatus = this.fundingStatusDimension.group().reduceSum(d => d.total_donations)
+		this.totalDonations = this.totalDonationsDimension.group().reduceSum(d => d.total_donations)
+
 
 		//-- threshold values to be used in charts
-		minDate = this.datePostedDimension.bottom(1)[0].date_posted
-		maxDate = this.datePostedDimension.top(1)[0].date_posted
-		// maxState = this.totalDonationsByState.top(1)[0].value
-		// stateDimension = this.stateDimension
+		this.minDate = this.datePostedDimension.bottom(1)[0].date_posted
+		this.maxDate = this.datePostedDimension.top(1)[0].date_posted
+		this.maxState = this.totalDonationsByState.top(1)[0].values	//CHECK: need?
+		
+
+		minDate = this.minDate
+		maxDate = this.maxDate
+		stateDimension = this.stateDimension
 
 		// console.log("stateDimension, array??:", stateDimension)
 		// console.log("this.stateDimension, array??:", this.stateDimension)
 		// console.log("maxState: ", maxState)
+
+		console.log("new Date(2002, 8, 1)::" + new Date(2002, 8, 1))
+		console.log("minDate::" + minDate)
+		console.log("new Date(2008, 7, 1)::" + new Date(2008, 7, 1))
+		console.log("maxDate::" + maxDate)
 
 		// stateParam = d3.scaleOrdinal().domain(["CA", "IL", "NC", "NY", "SC", "TX"])
 	}
@@ -75,7 +89,6 @@ class App extends Component {
 	 }
 
 	crossfilterContext = (callBack) => {
-		console.log("APP :: crossfilterContext")
 		console.log('APP :: crossfilterContext, config.NODE_ENV:', config.node_env)
 
 		if (!callBack) {
@@ -87,7 +100,7 @@ class App extends Component {
 		    axios.get(`/api/data`)
 		    .then(resp => {
 		    	let data = resp.data
-		    	console.log("development: data.length, " + data.length) 	
+		    	// console.log("development: data.length, " + data.length) 	
 	    	 	const dateParse = timeParse('%m/%d/%Y')
 	    	 	data.forEach(d => {
 					d.date_posted = dateParse(d.date_posted);
@@ -101,7 +114,7 @@ class App extends Component {
 		} else {
 			//-- production
 			csv('./data/sampledata.csv', (data) => {
-				console.log("production: data.length, " + data.length) 
+				// console.log("production: data.length, " + data.length) 
 				const dateParse = timeParse('%m/%d/%Y')
 	    	 	data.forEach(d => {
 					d.date_posted = dateParse(d.date_posted);
@@ -133,23 +146,22 @@ class App extends Component {
 		        <div className="appContent">
 			        <ChartContainer className="container"
 			        				crossfilterContext={this.crossfilterContext} >
-			        	<div className="row" style={{marginLeft:'50px', width: '1024px'}}>
+			        	<div className="row" style={{marginLeft:'15px', width: '1024px'}}>
 				          <DataCount 
 			                className="dc-data-count"
 			                dimension={ctx => ctx.crossfilter}
 			                group={ctx => ctx.groupAll} />
-				          <div className="dc-data-count">
+				          <div className="dc-data-count" style={{position: 'absolute', right: '50px'}}>
 				          	<a className="reset" style={{fontWeight: 'bold', textDecoration: 'underline', cursor:'pointer', color:'#3182bd'}} onClick={this.resetAll}>Reset All</a>
 				          </div>
 				        </div>
 
 				        <div className="row">
 				        	<div className='chartTitle' style={{marginTop: '25px'}}>
-					        	<span style={{marginLeft: '75px'}}>Number of Donations</span>
-					        	<span style={{marginLeft: '500px'}}>Funding Status</span>
+					        	<span style={{marginLeft: '75px'}}>Number of Donations by Date</span>
+					        	<span style={{marginLeft: '445px'}}>Funding Status</span>
 				        	</div>
 				        </div>
-
 			        	<div className="row">
 				          <LineChart
 				            id="byDateChart"
@@ -164,7 +176,7 @@ class App extends Component {
 				            renderHorizontalGridLines={true}
 				            renderVerticalGridLines={true}
 				            mouseZoomable={true}
-				            x={scaleTime().domain([new Date(2002, 9, 1), new Date(2008, 8, 1)])}
+				            x={scaleTime().domain([new Date(2002, 8, 1), new Date(2008, 7, 1)])}
 				            yAxis={axis => axis.ticks(6)} /> 
 				          <PieChart
 				          	id="byFundingStatusChart"
@@ -179,12 +191,11 @@ class App extends Component {
 
 				        <div className="row">
 				        	<div className='chartTitle'>
-					        	<span style={{marginLeft: '75px'}}>Resource Type</span>
-					        	<span style={{marginLeft: '220px'}}>Poverty Level</span>
-					        	<span style={{marginLeft: '220px'}}>Grade</span>
+					        	<span style={{marginLeft: '75px'}}>by Resource Type</span>
+					        	<span style={{marginLeft: '200px'}}>by Poverty Level</span>
+					        	<span style={{marginLeft: '200px'}}>by Grade</span>
 				        	</div>
 				        </div>
-
 			        	<div className="row">
 				          <RowChart
 				            id="byReourceTypeChart"
