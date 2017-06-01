@@ -1,1 +1,1 @@
-A sample data visualization using d3.js, dc.js, node.js & Express, mongodb, and React (react-dc).
+A sample data visualization using D3.js, dc.js, NodeJS & Express, MongoDB, and React (dc-react).
